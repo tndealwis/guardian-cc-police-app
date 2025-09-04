@@ -13,62 +13,69 @@ class ReportsService {
     latitude: z.preprocess((val) => Number(val), z.number()).optional(),
   });
 
-  async createReport(files, body, user_id) {
-    try {
-      const reportDetailsValidated = this.ReportValidation.parse(body);
-      const report = new ReportModel(
-        reportDetailsValidated.description,
-        reportDetailsValidated.longitude,
-        reportDetailsValidated.latitude,
-        user_id,
-      );
+  async create(files, body, user_id) {
+    const reportDetailsValidated = this.ReportValidation.parse(body);
+    const report = new ReportModel(
+      reportDetailsValidated.description,
+      reportDetailsValidated.longitude,
+      reportDetailsValidated.latitude,
+      user_id,
+    );
 
-      await report.save();
+    await report.save();
 
-      const imageNames = [];
+    const imageNames = [];
 
-      if (Array.isArray(files) && files.length > 0) {
-        for (const file of files) {
-          const fileName = await FileStorage.saveImage(file);
-          imageNames.push(fileName);
+    if (Array.isArray(files) && files.length > 0) {
+      for (const file of files) {
+        const fileName = await FileStorage.saveImage(file);
+        imageNames.push(fileName);
 
-          new ReportImagesModel(report.id, fileName).save();
-        }
+        new ReportImagesModel(report.id, fileName).save();
       }
-
-      return {
-        error: false,
-        code: 201,
-        data: {
-          id: report.id,
-        },
-      };
-    } catch (err) {
-      errorService.handleError(err);
     }
+
+    return {
+      error: false,
+      code: 201,
+      data: {
+        id: report.id,
+      },
+    };
   }
 
-  async getReportById(id) {
-    try {
-      const report = await ReportModel.findById(id);
+  /**
+   * @param {number} id
+   */
+  async getById(id) {
+    const report = await ReportModel.findById(id);
 
-      if (report !== null) {
-        const personalDetails = await personalDetailsService.findByReportId(id);
+    if (report !== null) {
+      const personalDetails = await personalDetailsService.findByReportId(id);
 
-        report.personal_details = personalDetails.data;
-      }
-
-      return {
-        error: false,
-        code: 200,
-        data: report,
-      };
-    } catch (err) {
-      errorService.handleError(err);
+      report.personal_details = personalDetails.data;
     }
+
+    const imagePaths = await ReportImagesModel.findAllBy(
+      "report_id",
+      report.id,
+    );
+
+    report.images = imagePaths;
+
+    return {
+      error: false,
+      code: 200,
+      data: report,
+    };
   }
 
-  async canModifyReport(id, user_id, is_officer = false) {
+  /**
+   * @param {number} id
+   * @param {number} user_id
+   * @param {boolean} [is_officer=false]
+   */
+  async canModify(id, user_id, is_officer = false) {
     if (is_officer) {
       return true;
     }
@@ -80,7 +87,11 @@ class ReportsService {
     }
   }
 
-  async canUserViewReport(report, user_id) {
+  /**
+   * @param {unknown} report
+   * @param {number} user_id
+   */
+  async canUserView(report, user_id) {
     const user = await UserModel.findById(user_id);
 
     if (user === null) {
@@ -90,18 +101,30 @@ class ReportsService {
     return user.is_officer || report.user_id === user_id;
   }
 
+  /**
+   * @param {number} [limit=100]
+   */
   async getAll(limit = 100) {
-    try {
-      const reports = await ReportModel.all(limit);
+    const reports = await ReportModel.all(limit);
 
-      return {
-        error: false,
-        code: 200,
-        data: reports,
-      };
-    } catch (err) {
-      errorService.handleError(err);
-    }
+    return {
+      error: false,
+      code: 200,
+      data: reports,
+    };
+  }
+
+  /**
+   * @param {number} user_id
+   */
+  async getAllByUserId(user_id) {
+    const reports = await ReportModel.findAllBy("user_id", user_id);
+
+    return {
+      error: false,
+      code: 200,
+      data: reports,
+    };
   }
 }
 

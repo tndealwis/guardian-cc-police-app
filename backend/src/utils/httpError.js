@@ -1,3 +1,6 @@
+const HttpResponse = require("./HttpResponseHelper");
+const defaultLogger = require("../config/logging");
+
 class HttpError extends Error {
   code;
   data;
@@ -28,13 +31,19 @@ class HttpError extends Error {
    * @param {import("express").Response} res
    */
   handleResponse(res) {
-    res
-      .status(this.code)
-      .json({ code: this.code, message: this.clientMessage, data: this.data });
+    new HttpResponse(
+      this.code,
+      { code: this.code, message: this.clientMessage, data: this.data },
+      this.clientMessage,
+    ).json(res);
   }
 
   handleLogging() {
-    console.error(this.code, this.message, this.stack);
+    defaultLogger.log({
+      date: new Date().toString(),
+      level: "error",
+      message: this.message,
+    });
   }
 }
 

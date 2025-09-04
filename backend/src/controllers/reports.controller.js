@@ -2,39 +2,40 @@ const personalDetailsService = require("../services/personalDetails/personalDeta
 const reportsService = require("../services/reports/reports.service");
 const authenticationService = require("../services/users/authentication.service");
 const HttpError = require("../utils/httpError");
+const HttpResponse = require("../utils/HttpResponseHelper");
 
 class ReportsController {
   /**
-   * @param {Express.Request} req
-   * @param {Express.Response} res
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
    */
-  async createReport(req, res) {
-    const createReportRes = await reportsService.createReport(
+  async create(req, res) {
+    const createReportRes = await reportsService.create(
       req.files,
       req.body,
       req.user,
     );
 
-    res.status(createReportRes.code).json(createReportRes);
+    new HttpResponse(createReportRes.code, createReportRes.data).json(res);
   }
 
   /**
-   * @param {Express.Request} req
-   * @param {Express.Response} res
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
    */
-  async getReportById(req, res) {
+  async getById(req, res) {
     const id = req.params.id;
-    const report = await reportsService.getReportById(id);
+    const report = await reportsService.getById(id);
 
     if (report.error || report.data === null) {
-      return res.status(report.code).json(report);
+      return new HttpResponse(401).sendStatus(res);
     }
 
-    if (!(await reportsService.canUserViewReport(report.data, req.user))) {
-      return res.sendStatus(401);
+    if (!(await reportsService.canUserView(report.data, req.user))) {
+      return new HttpResponse(401).sendStatus(res);
     }
 
-    res.status(report.code).json(report);
+    new HttpResponse(report.code, report.data).json(res);
   }
 
   /**
@@ -44,7 +45,7 @@ class ReportsController {
   async getAll(req, res) {
     const reports = await reportsService.getAll();
 
-    return res.status(reports.code).json(reports);
+    new HttpResponse(reports.code, reports.data).json(res);
   }
 
   /**
@@ -53,7 +54,7 @@ class ReportsController {
    */
   async createWitness(req, res) {
     const id = req.params.id;
-    const canModifyReport = await reportsService.canModifyReport(id, req.user);
+    const canModifyReport = await reportsService.canModify(id, req.user);
 
     if (!canModifyReport) {
       throw new HttpError({ code: 401 });
@@ -64,7 +65,7 @@ class ReportsController {
       id,
     );
 
-    return res.status(createWitnessRes.code).json(createWitnessRes);
+    new HttpResponse(createWitnessRes.code, createWitnessRes.data).json(res);
   }
 }
 

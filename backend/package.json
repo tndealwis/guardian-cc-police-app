@@ -15,10 +15,12 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "pug": "^3.0.3",
     "sqlite3": "^5.1.7",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^11.1.0",
+    "winston": "^3.17.0",
     "zod": "^4.0.17"
   },
   "devDependencies": {
