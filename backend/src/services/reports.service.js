@@ -5,6 +5,9 @@ const ReportImagesModel = require("../models/report-images.model");
 const UserModel = require("../models/user.model");
 const personalDetailsService = require("./personal-details.service");
 const HttpError = require("../utils/http-error");
+const {
+  calculateReportPriorityFromDescription,
+} = require("../utils/word-priority-matching");
 
 class ReportsService {
   ReportValidation = z.object({
@@ -27,6 +30,9 @@ class ReportsService {
       reportDetailsValidated.longitude,
       reportDetailsValidated.latitude,
       user_id,
+      calculateReportPriorityFromDescription(
+        reportDetailsValidated.description,
+      ),
     );
 
     await report.save();
@@ -52,11 +58,13 @@ class ReportsService {
   async getById(id) {
     const report = await ReportModel.findById(id);
 
-    if (report !== null) {
-      const personalDetails = await personalDetailsService.findByReportId(id);
-
-      report.personal_details = personalDetails;
+    if (report === null) {
+      return null;
     }
+
+    const personalDetails = await personalDetailsService.findByReportId(id);
+
+    report.personal_details = personalDetails;
 
     const imagePaths = await ReportImagesModel.findAllBy(
       "report_id",
@@ -103,8 +111,13 @@ class ReportsService {
    * @param {number} [limit=100]
    * @returns {Promise<ReportModel[]>}
    */
-  async getAll(limit = 100) {
-    return await ReportModel.all(limit);
+  async getAll(userId = null, limit = 100) {
+    const orderByDesc = `ORDER BY priority DESC`;
+    if (userId === null) {
+      return await ReportModel.all(limit, orderByDesc);
+    }
+
+    return await ReportModel.findAllBy("user_id", userId, orderByDesc);
   }
 
   /**

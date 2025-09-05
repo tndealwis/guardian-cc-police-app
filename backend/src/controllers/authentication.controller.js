@@ -21,6 +21,7 @@ class AuthenticationController {
 
     const [access, refresh] = await authenticationService.generateTokens(
       user.id,
+      user.is_officer,
     );
 
     res
@@ -66,6 +67,37 @@ class AuthenticationController {
       .clearCookie(ACCESS_TOKEN_COOKIE_NAME)
       .clearCookie(REFRESH_TOKEN_COOKIE_NAME);
     new HttpResponse(204).sendStatus(res);
+  }
+
+  /**
+   * @param {import('express').Request} req
+   * @param {import('express').Response} res
+   */
+  async refreshToken(req, res) {
+    const { access, refresh } = getJwtFromRequest(req, "all");
+    if (!refresh) {
+      return new HttpResponse(400).sendStatus(res);
+    }
+
+    const tokens = await authenticationService.refreshToken(access, refresh);
+    if (tokens === null) {
+      return new HttpResponse(
+        400,
+        {},
+        "Token is not yet eligible for refresh. Retry closer to expiry.",
+      ).json(res);
+    }
+
+    const [accessToken, refreshToken] = tokens;
+
+    res
+      .cookie(ACCESS_TOKEN_COOKIE_NAME, accessToken, cookieOptions)
+      .cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken, cookieOptions);
+
+    new HttpResponse(200, {
+      accessToken,
+      refreshToken,
+    }).json(res);
   }
 
   /**

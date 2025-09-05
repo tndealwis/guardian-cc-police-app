@@ -6,6 +6,11 @@ const UserModel = require("../models/user.model");
 const HttpError = require("../utils/http-error");
 const JwtModel = require("../models/jwt.model");
 const LoginAttemptsModel = require("../models/login-attempts.model");
+const {
+  ACCESS_TOKEN_WINDOW_SECONDS,
+  REFRESH_TOKEN_WINDOW_SECONDS,
+  REFRESH_TOKEN_ENABLED_WINDOW_SECONDS,
+} = require("../constants/jwts");
 
 const UserLogin = z.object({
   username: z.string(),
@@ -68,18 +73,25 @@ class AuthenticationService {
    * @param {number} userId
    * @returns {Promise<[string, string]>}
    */
-  async generateTokens(userId) {
-    const accessExp = Math.floor(Date.now() / 1000) + 60 * 60;
-    const refreshExp = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 7;
+  async generateTokens(userId, is_officer) {
+    const accessExp =
+      Math.floor(Date.now() / 1000) + ACCESS_TOKEN_WINDOW_SECONDS;
+    const refreshExp =
+      Math.floor(Date.now() / 1000) + REFRESH_TOKEN_WINDOW_SECONDS;
 
     const session_id = uuidv4();
 
     const access = jwt.sign(
-      { sub: userId, jti: session_id, exp: accessExp },
+      {
+        sub: userId,
+        jti: session_id,
+        is_officer,
+        exp: accessExp,
+      },
       process.env.JWT_ACCESS_SECRET,
     );
     const refresh = jwt.sign(
-      { sub: userId, jti: session_id, exp: refreshExp },
+      { sub: userId, jti: session_id, is_officer, exp: refreshExp },
       process.env.JWT_REFRESH_SECRET,
     );
 
@@ -146,7 +158,7 @@ class AuthenticationService {
    * @param {string} token
    * @param {('access'|'refresh')} [type="access"]
    */
-  verifyToken(token, type = "access") {
+  async verifyToken(token, type = "access") {
     const payload = jwt.verify(
       token,
       type == "refresh"
@@ -154,16 +166,43 @@ class AuthenticationService {
         : process.env.JWT_ACCESS_SECRET,
     );
 
+    const jwtSaved = await JwtModel.findBy("session_id", payload.jti);
+
+    if (!jwtSaved) {
+      throw new HttpError({ code: 401, clientMessage: "Invalid Token" });
+    }
+
     return payload;
   }
 
   /**
-   * @param {string} token
+   * @param {string} access
+   * @param {string} refresh
    */
-  async refreshToken(token) {
-    const tokenVerified = this.verifyToken(token, "refresh");
-    const userId = tokenVerified.payload.sub;
-    return this.generateTokens(userId);
+  async refreshToken(access, refresh) {
+    let accessExpiresAt = null;
+    try {
+      const accessTokenVerified = await this.verifyToken(access, "access");
+      accessExpiresAt = accessTokenVerified.exp;
+    } catch {}
+
+    if (
+      accessExpiresAt !== null &&
+      accessExpiresAt - Math.floor(Date.now() / 1000) >
+        REFRESH_TOKEN_ENABLED_WINDOW_SECONDS
+    ) {
+      return null;
+    }
+
+    const refreshTokenVerified = await this.verifyToken(refresh, "refresh");
+
+    const userId = refreshTokenVerified.sub;
+    const isOfficer = refreshTokenVerified.is_officer;
+    const sessionId = refreshTokenVerified.jti;
+
+    await JwtModel.deleteAllSessionTokens(sessionId);
+
+    return await this.generateTokens(userId, isOfficer);
   }
 
   /**
@@ -178,7 +217,7 @@ class AuthenticationService {
       return await JwtModel.deleteAllUserTokens(userId);
     }
 
-    const tokenValidted = this.verifyToken(accessToken);
+    const tokenValidted = await this.verifyToken(accessToken);
 
     if (tokenValidted.sub !== userId) {
       return;
