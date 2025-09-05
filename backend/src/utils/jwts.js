@@ -20,7 +20,7 @@ function tryGetTokensFromCookie(req, type) {
   const refreshToken = req.cookies.refreshToken;
 
   return type === "all"
-    ? !accessToken || !refreshToken
+    ? !accessToken && !refreshToken
       ? null
       : { access: accessToken, refresh: refreshToken }
     : type === "access" && accessToken
@@ -42,7 +42,7 @@ function tryGetTokensFromAuthorisationHeader(req, type) {
   }
 
   let access = null;
-  const accessTokenHeader = req.headers.authorization;
+  const accessTokenHeader = req.headers.Authorization;
   if (accessTokenHeader && accessTokenHeader.startsWith("Bearer ")) {
     access = accessTokenHeader.substring(7);
   }
