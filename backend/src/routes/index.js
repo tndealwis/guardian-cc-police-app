@@ -1,22 +1,23 @@
 const { Router } = require("express");
 const AuthorisationMiddleware = require("../middleware/authorization.middleware");
+const rateLimitMiddleware = require("../middleware/rate-limiting.middleware");
 
-const authenticationRouter = require("./authentication");
-const reportsRouter = require("./reports");
-const lostArticlesRouter = require("./lostArticles");
-
-const authenticationViewsRouter = require("./views/authentication.view.route");
-const dashboardViewRouter = require("./views/dashboard.view.route");
-const reportsViewRouter = require("./views/reports.view.route");
+const reportsRouter = require("./reports.route");
+const lostArticlesRouter = require("./lost-articles.route");
+const authenticationRouter = require("./authentication.route");
 
 const router = Router();
 
-router.use("/api/v1/auth", authenticationRouter);
-router.use("/api/v1", AuthorisationMiddleware, reportsRouter);
-router.use("/api/v1", AuthorisationMiddleware, lostArticlesRouter);
-
-router.use("/", authenticationViewsRouter);
-router.use("/", AuthorisationMiddleware, dashboardViewRouter);
-router.use("/", AuthorisationMiddleware, reportsViewRouter);
+router.use(
+  "/api/v1/auth",
+  rateLimitMiddleware({ ipLimit: 15, ipWindowMs: 1000 * 60 * 5 }),
+  authenticationRouter,
+);
+router.use("/api/v1/reports", AuthorisationMiddleware, reportsRouter);
+router.use(
+  "/api/v1/lost-articles",
+  AuthorisationMiddleware,
+  lostArticlesRouter,
+);
 
 module.exports = router;

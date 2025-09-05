@@ -1,5 +1,6 @@
 const errorService = require("../services/error-service");
-const HttpError = require("../utils/httpError");
+const defaultLogger = require("../config/logging");
+const HttpError = require("../utils/http-error");
 
 /**
  * @param {Error} err
