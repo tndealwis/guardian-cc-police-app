@@ -11,6 +11,7 @@ const {
   REFRESH_TOKEN_WINDOW_SECONDS,
   REFRESH_TOKEN_ENABLED_WINDOW_SECONDS,
 } = require("../constants/jwts");
+const AppError = require("../utils/app-error");
 
 const UserLogin = z.object({
   username: z.string(),
@@ -73,7 +74,11 @@ class AuthenticationService {
    * @param {number} userId
    * @returns {Promise<[string, string]>}
    */
-  async generateTokens(userId, is_officer) {
+  async generateTokens(userId, is_officer = 0) {
+    if (!userId) {
+      return [];
+    }
+
     const accessExp =
       Math.floor(Date.now() / 1000) + ACCESS_TOKEN_WINDOW_SECONDS;
     const refreshExp =
@@ -121,6 +126,10 @@ class AuthenticationService {
    * @returns {Promise<JwtModel>}
    */
   async saveToken(user_id, session_id, token, type, expires_at) {
+    if (!user_id || !session_id || !token || !type || !expires_at) {
+      return null;
+    }
+
     return await new JwtModel(
       user_id,
       session_id,
@@ -134,6 +143,10 @@ class AuthenticationService {
    * @param {number} user_id
    */
   async deleteTokensForUser(user_id) {
+    if (!user_id) {
+      throw new HttpError({ code: 400, clientMessage: "Bad Request" });
+    }
+
     const jwts = await JwtModel.findAllBy("user_id", user_id);
     if (jwts) {
       jwts.forEach(async (token) => {
@@ -147,6 +160,10 @@ class AuthenticationService {
    * @param {('access'|'refresh')} type
    */
   async deleteTokenForUser(user_id, type) {
+    if (!user_id || !type) {
+      throw new HttpError({ code: 400, clientMessage: "Bad Request" });
+    }
+
     const jwt = await JwtModel.findBy(["user_id", "type"], [user_id, type]);
 
     if (jwt) {
@@ -179,7 +196,13 @@ class AuthenticationService {
    * @param {string} access
    * @param {string} refresh
    */
-  async refreshToken(access, refresh) {
+  async refreshToken(
+    access,
+    refresh,
+    {
+      refreshTokenEnabledWindowSeconds = REFRESH_TOKEN_ENABLED_WINDOW_SECONDS,
+    } = {},
+  ) {
     let accessExpiresAt = null;
     try {
       const accessTokenVerified = await this.verifyToken(access, "access");
@@ -189,9 +212,9 @@ class AuthenticationService {
     if (
       accessExpiresAt !== null &&
       accessExpiresAt - Math.floor(Date.now() / 1000) >
-        REFRESH_TOKEN_ENABLED_WINDOW_SECONDS
+        refreshTokenEnabledWindowSeconds
     ) {
-      return null;
+      return [];
     }
 
     const refreshTokenVerified = await this.verifyToken(refresh, "refresh");
@@ -200,7 +223,11 @@ class AuthenticationService {
     const isOfficer = refreshTokenVerified.is_officer;
     const sessionId = refreshTokenVerified.jti;
 
-    await JwtModel.deleteAllSessionTokens(sessionId);
+    setTimeout(() => {
+      AppError.try(async () => {
+        await JwtModel.deleteAllSessionTokens(sessionId);
+      });
+    }, 5000);
 
     return await this.generateTokens(userId, isOfficer);
   }
@@ -213,6 +240,10 @@ class AuthenticationService {
    * @param {string} accessToken
    */
   async logout(userId, accessToken) {
+    if (!userId) {
+      throw new HttpError({ code: 400, clientMessage: "Bad Request" });
+    }
+
     if (!accessToken) {
       return await JwtModel.deleteAllUserTokens(userId);
     }
@@ -241,14 +272,17 @@ class AuthenticationService {
    * @param {number} user_id
    */
   async failedLoginAttempt(user_id) {
+    if (!user_id) {
+      throw new HttpError({ code: 400, clientMessage: "Bad Request" });
+    }
+
     /** @type {LoginAttemptsModel | null} */
     const loginAttempt =
       (await LoginAttemptsModel.findBy("user_id", user_id)) ||
       (await new LoginAttemptsModel(user_id).save());
 
-    if (loginAttempt) {
-      await loginAttempt.failedLoginAttempt();
-    }
+    await loginAttempt.failedLoginAttempt();
+    return loginAttempt;
   }
 
   /**
@@ -257,7 +291,7 @@ class AuthenticationService {
    */
   async userIsLoginBlocked(user_id) {
     /** @type {LoginAttemptsModel | null} */
-    if (user_id === null) {
+    if (!user_id) {
       await LoginAttemptsModel.findBy("user_id", -1);
       return false;
     }
