@@ -1,7 +1,14 @@
+
+//backend
 DEV_ENVIORMENT=DEVELOPMENT
+NODE_ENV=DEVELOPMENT
 JWT_ACCESS_SECRET=xxxxxxxxxxxxxxxx
 JWT_REFRESH_SECRET=xxxxxxxxxxxxxxxx
-MAP_BOX_TOKEN=xxxxxxxxxxxxxxxx
+JWT_FILES_SECRET=xxxxxxxxxxxxxxxx
+MAP_BOX_TOKEN=pktokengoeshere
 ACCOUNT_LOCKOUT_SECONDS=600
 ACCOUNT_LOCKOUT_ATTEMPTS=5
 DUMMY_HASH=$argon2id$v=19$m=6.................
+
+//frontend
+MAP_BOX_TOKEN=sktokengoeshere
