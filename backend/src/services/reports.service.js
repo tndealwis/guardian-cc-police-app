@@ -9,6 +9,7 @@ const {
   calculateReportPriorityFromDescription,
 } = require("../utils/word-priority-matching");
 const filesService = require("./files.service");
+const { withTransaction } = require("../config/database");
 
 class ReportsService {
   ReportValidation = z.object({
@@ -25,28 +26,30 @@ class ReportsService {
    * @returns {Promise<ReportModel>}
    */
   async create(files, body, user_id) {
-    const reportDetailsValidated = this.ReportValidation.parse(body);
-    const report = new ReportModel(
-      reportDetailsValidated.description,
-      reportDetailsValidated.longitude,
-      reportDetailsValidated.latitude,
-      user_id,
-      calculateReportPriorityFromDescription(
+    return await withTransaction(async () => {
+      const reportDetailsValidated = this.ReportValidation.parse(body);
+      const report = new ReportModel(
         reportDetailsValidated.description,
-      ),
-    );
+        reportDetailsValidated.longitude,
+        reportDetailsValidated.latitude,
+        user_id,
+        calculateReportPriorityFromDescription(
+          reportDetailsValidated.description,
+        ),
+      );
 
-    await report.save();
+      await report.save();
 
-    if (Array.isArray(files) && files.length > 0) {
-      for (const file of files) {
-        const fileName = await FileStorage.saveImage(file);
+      if (Array.isArray(files) && files.length > 0) {
+        for (const file of files) {
+          const fileName = await FileStorage.saveImage(file);
 
-        new ReportImagesModel(report.id, fileName).save();
+          new ReportImagesModel(report.id, fileName).save();
+        }
       }
-    }
 
-    return report;
+      return report;
+    });
   }
 
   /**
@@ -54,6 +57,10 @@ class ReportsService {
    * @return {Promise<ReportModel | null>}
    */
   async getById(id) {
+    if (!id) {
+      throw new HttpError({ code: 400 });
+    }
+
     const report = await ReportModel.findById(id);
 
     if (report === null) {
@@ -69,11 +76,13 @@ class ReportsService {
       report.id,
     );
 
-    report.images = imagePaths.map((image) => {
-      return filesService.generateFileToken(
-        FileStorage.getImagePath(image.image_path),
-      );
-    });
+    if (imagePaths && Array.isArray(imagePaths)) {
+      report.images = imagePaths.map((image) => {
+        return filesService.generateFileToken(
+          FileStorage.getImagePath(image.image_path),
+        );
+      });
+    }
 
     return report;
   }
@@ -93,6 +102,8 @@ class ReportsService {
     if (report && report.user_id === user_id) {
       return true;
     }
+
+    return false;
   }
 
   /**
@@ -120,13 +131,6 @@ class ReportsService {
     }
 
     return await ReportModel.findAllBy("user_id", userId, orderByDesc);
-  }
-
-  /**
-   * @param {number} user_id
-   */
-  async getAllByUserId(user_id) {
-    return await ReportModel.findAllBy("user_id", user_id);
   }
 
   async updateStatus(id, body) {
