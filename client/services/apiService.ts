@@ -1,7 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
-let BASE_URL = "http://192.168.0.238:2699";
+let BASE_URL = "http://192.168.x.x:2699";
 const USE_COOKIES = true;
 
 const apiService = axios.create();
@@ -34,7 +34,7 @@ const getBaseUrl = async () => {
 	try {
 		BASE_URL =
 			(await SecureStore.getItemAsync("baseURL")) ||
-			"http://192.168.0.238:2699";
+			"http://192.168.x.x:2699";
 	} catch (e) {
 		console.error(e);
 	}
