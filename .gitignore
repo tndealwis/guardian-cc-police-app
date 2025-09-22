@@ -9,11 +9,8 @@ coverage/
 *.db
 .env
 *.env
-public/
-storage/
-uploads/
 *.log
-
+trained-model.json
 
 # Expo
 .expo/
