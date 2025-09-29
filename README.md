@@ -3,7 +3,8 @@
 Guardian is community policing application, essentially an online portal which enables reporting crimes and contacting your local force.
 
 ### Running the backend for development
-```bash 
+
+```bash
 # Client is deprecated and shall be ignored on this. It was merely used for initial phases of development.
 # Backend Tested with following versions
 # Python 3.11
@@ -20,8 +21,8 @@ Guardian is community policing application, essentially an online portal which e
 # 3. Install dependencies
     npm install
 
-# 4. Set env variables by renaming the .env.example file to .env 
-# replace necessary values such as your mapbox public token key, 
+# 4. Set env variables by renaming the .env.example file to .env
+# replace necessary values such as your mapbox public token key,
 # set chatbot json file location (after placing the file in the directory) and chatbot project name
 
 # 5. (For Windows) Run the following command in /backend which copies a tensorflow file
@@ -31,6 +32,9 @@ cp node_modules/\@tensorflow/tfjs-node/deps/lib/tensorflow.dll node_modules/\@te
 
 # 6. Train the model
 npm run model:train
+
+# Optionally generate fake example data (Takes 10-15 seconds)
+npm run script:generateExampleData
 
 # Start the development server
 npm run dev
